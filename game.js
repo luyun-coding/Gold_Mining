@@ -62,13 +62,13 @@ class GoldMiningGame {
             this.draw();
         }, 100);
         
-        // 调试信息：检查游戏状态
-        console.log('游戏初始化完成，状态:', this.gameState);
-        console.log('钩子状态:', this.hookState);
-        console.log('钩子角度:', this.hookAngle);
-        console.log('钩子位置:', this.hookPosition);
-        console.log('钩子摆动方向:', this.hookSwingDirection);
-        console.log('游戏循环是否启动:', this.animationId !== null);
+        // 调试信息：检查游戏状态（已注释）
+        // console.log('游戏初始化完成，状态:', this.gameState);
+        // console.log('钩子状态:', this.hookState);
+        // console.log('钩子角度:', this.hookAngle);
+        // console.log('钩子位置:', this.hookPosition);
+        // console.log('钩子摆动方向:', this.hookSwingDirection);
+        // console.log('游戏循环是否启动:', this.animationId !== null);
     }
     
     setupEventListeners() {
@@ -177,10 +177,10 @@ class GoldMiningGame {
             // 强制重绘一次，解决浏览器渲染问题
             this.forceRedraw();
             
-            // 调试信息：确认游戏状态切换
-            console.log('startGame: 游戏状态已切换到playing');
-            console.log('钩子状态:', this.hookState);
-            console.log('钩子角度:', this.hookAngle);
+            // 调试信息：确认游戏状态切换（已注释）
+            // console.log('startGame: 游戏状态已切换到playing');
+            // console.log('钩子状态:', this.hookState);
+            // console.log('钩子角度:', this.hookAngle);
         }
     }
     
@@ -1004,7 +1004,7 @@ class GoldMiningGame {
         
         // 调试信息：检查钩子位置计算
         if (Math.random() < 0.01) {
-            console.log('钩子绘制 - 角度:', this.hookAngle.toFixed(2), '位置:', {x: hookEndX.toFixed(2), y: hookEndY.toFixed(2)});
+            // console.log('钩子绘制 - 角度:', this.hookAngle.toFixed(2), '位置:', {x: hookEndX.toFixed(2), y: hookEndY.toFixed(2)});
         }
         
         // 钩子线（带阴影效果）
@@ -1142,9 +1142,9 @@ class GoldMiningGame {
             this.updateHook();
             this.updateGameTime();
             
-            // 调试信息：检查游戏循环是否正常工作
+            // 调试信息：检查游戏循环是否正常工作（已注释）
             if (Math.random() < 0.01) { // 1%概率输出调试信息，避免控制台刷屏
-                console.log('游戏循环运行中 - 钩子状态:', this.hookState, '角度:', this.hookAngle.toFixed(2));
+                // console.log('游戏循环运行中 - 钩子状态:', this.hookState, '角度:', this.hookAngle.toFixed(2));
             }
         }
         
@@ -1220,4 +1220,4 @@ const gameInstructions = `
 - 按P键暂停，R键重新开始
 `;
 
-console.log(gameInstructions);
+// console.log(gameInstructions);
