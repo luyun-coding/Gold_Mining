@@ -441,7 +441,7 @@ class GoldMiningGame {
                 x: Math.random() * (this.canvas.width - 40) + 20,
                 y: Math.random() * (this.canvas.height - 200) + 100,
                 size: 20,
-                value: 300 + (this.level * 50) // 随关卡增加价值
+                value: 300 + ((this.level - 1) * 50) // 第1关300分，每关增加50分
             });
         }
         
