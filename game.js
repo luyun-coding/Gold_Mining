@@ -160,6 +160,9 @@ class GoldMiningGame {
     }
     
     startGame() {
+        if (this.gameState === 'gameOver') {
+            this.restartGame();
+        }
         if (this.gameState === 'idle' || this.gameState === 'paused') {
             this.gameState = 'playing';
             // 在游戏开始时生成物品
@@ -246,6 +249,11 @@ class GoldMiningGame {
                 this.playTone(600, 0.1, 'sine', 0.05);
         }
     }
+
+    playTimeWarning() {
+        // 紧凑的滴嗒声，用于10秒倒计时警告
+        this.playTone(1000, 0.05, 'square', 0.04);
+    }
     
     toggleMute() {
         this.isMuted = !this.isMuted;
@@ -307,9 +315,71 @@ class GoldMiningGame {
             startBtn.disabled = false;
             pauseBtn.disabled = this.gameState === 'idle';
         }
-        // 同步静音按钮文案
+        // 同步静音按钮文案与样式（保持两行与字号）
         const muteBtn = document.getElementById('muteBtn');
-        if (muteBtn) muteBtn.textContent = this.isMuted ? '取消静音' : '静音';
+        if (muteBtn) {
+            if (this.isMuted) {
+                muteBtn.innerHTML = '<span style="display:block;line-height:12px">取消<br>静音</span>';
+                muteBtn.style.fontSize = '11px';
+            } else {
+                muteBtn.textContent = '静音';
+                muteBtn.style.fontSize = '14px';
+            }
+        }
+        
+        // 应用统一主题样式（按钮与页面背景等）
+        this.applyUITheme();
+    }
+    
+    applyUITheme() {
+        try {
+            // 页面背景（冷色渐变，与Canvas协调）
+            document.body.style.background = 'linear-gradient(180deg, #A0E9FF 0%, #89C2FF 55%, #FFE45E 100%)';
+            document.body.style.color = '#1f2937';
+            // 按钮主题
+            const styleBtn = (btn, variant = 'primary') => {
+                if (!btn) return;
+                btn.style.border = 'none';
+                btn.style.borderRadius = '8px';
+                btn.style.padding = '8px 12px';
+                btn.style.marginRight = '6px';
+                btn.style.fontWeight = '600';
+                btn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+                btn.style.transition = 'transform .05s ease, opacity .2s ease';
+                btn.onmousedown = () => btn.style.transform = 'scale(0.98)';
+                btn.onmouseup = () => btn.style.transform = 'scale(1)';
+                if (variant === 'primary') {
+                    // 青绿主按钮
+                    btn.style.background = 'linear-gradient(180deg,#FDE047,#F59E0B)';
+                    btn.style.color = '#052e2b';
+                } else if (variant === 'secondary') {
+                    // 冷蓝次按钮
+                    btn.style.background = 'linear-gradient(180deg,#60a5fa,#3b82f6)';
+                    btn.style.color = '#eef2ff';
+                } else {
+                    // 中性浅灰蓝
+                    btn.style.background = 'linear-gradient(180deg,#FBCFE8,#F472B6)';
+                    btn.style.color = '#1f2937';
+                }
+                if (btn.disabled) {
+                    btn.style.opacity = '0.6';
+                    btn.style.cursor = 'not-allowed';
+                } else {
+                    btn.style.opacity = '1';
+                    btn.style.cursor = 'pointer';
+                }
+            };
+            styleBtn(document.getElementById('startBtn'), 'primary');
+            styleBtn(document.getElementById('pauseBtn'), 'secondary');
+            styleBtn(document.getElementById('restartBtn'), 'default');
+            // 悬浮静音按钮边框微调
+            const muteBtn = document.getElementById('muteBtn');
+            if (muteBtn) {
+                muteBtn.style.border = '1px solid rgba(255,255,255,0.7)';
+            }
+        } catch (e) {
+            console.warn('applyUITheme failed:', e);
+        }
     }
     
     getDifficultyConfig() {
@@ -684,12 +754,22 @@ class GoldMiningGame {
                 this.timeLeft = Math.max(0, this.timeLeft - tick);
                 this.timeAccumulator -= tick;
                 this.updateUI();
+                
+                // 在整秒递减时检查是否需要播放时间警告音效
+                if (this.timeLeft <= 10 && this.timeLeft > 0) {
+                    this.playTimeWarning();
+                }
             }
             
             // 时间警告效果（最后10秒，按整秒闪烁，减少频闪）
             if (this.timeLeft <= 10 && this.timeLeft > 0) {
                 const sec = Math.ceil(this.timeLeft);
-                this.canvas.style.borderColor = (sec % 2 === 0) ? '#FF0000' : '#A0522D';
+                this.canvas.style.borderColor = (sec % 2 === 0) ? '#FF0000' : '#F59E0B';
+                
+                // 时间警告音效（紧凑滴嗒声）- 在整秒时播放
+                if (this.timeAccumulator >= 1) {
+                    this.playTimeWarning();
+                }
             }
             
             if (this.timeLeft <= 0) {
@@ -736,6 +816,29 @@ class GoldMiningGame {
         };
         
         animateGameOver(performance.now());
+        // 显示透明模态框与“再来一局”按钮
+        (() => {
+            const existing = document.getElementById('gameOverModal');
+            let modal = existing || document.createElement('div');
+            if (!existing) {
+                modal.id = 'gameOverModal';
+                modal.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);z-index:1001;';
+                const card = document.createElement('div');
+                card.style.cssText = 'background:rgba(255,255,255,0.85);backdrop-filter:blur(6px);border-radius:12px;padding:24px 28px;box-shadow:0 8px 32px rgba(0,0,0,0.25);text-align:center;color:#1f2937;';
+                card.innerHTML = '<div style="font-size:24px;font-weight:700;margin-bottom:12px;">游戏结束</div><button id="retryBtn" style="margin-top:8px;border:none;border-radius:8px;padding:10px 16px;background:linear-gradient(180deg,#FDE047,#F59E0B);color:#052e2b;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.1);">再来一局</button>';
+                modal.appendChild(card);
+                document.body.appendChild(modal);
+            }
+            modal.style.display = 'flex';
+            const retryBtn = document.getElementById('retryBtn');
+            if (retryBtn) {
+                retryBtn.onclick = () => {
+                    modal.style.display = 'none';
+                    this.restartGame();
+                    this.startGame();
+                };
+            }
+        })();
     }
     
     draw() {
@@ -758,18 +861,23 @@ class GoldMiningGame {
     }
     
     drawBackground() {
-        // 土壤背景
-        this.ctx.fillStyle = '#8B4513';
+        // 冷色竖向渐变（蓝绿）
+        const grad = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
+        grad.addColorStop(0, '#A0E9FF');   // 浅蓝
+        grad.addColorStop(0.55, '#89C2FF'); // 清爽蓝
+        grad.addColorStop(1, '#FFE45E');   // 阳光奶油黄
+        this.ctx.fillStyle = grad;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // 地面纹理
-        this.ctx.fillStyle = '#A0522D';
-        for (let i = 0; i < this.canvas.width; i += 20) {
-            this.ctx.fillRect(i, 0, 2, this.canvas.height);
-        }
-        for (let i = 0; i < this.canvas.height; i += 20) {
-            this.ctx.fillRect(0, i, this.canvas.width, 2);
-        }
+        // 柔和暗角（vignette）
+        const vg = this.ctx.createRadialGradient(
+            this.canvas.width / 2, this.canvas.height / 2, Math.min(this.canvas.width, this.canvas.height) * 0.35,
+            this.canvas.width / 2, this.canvas.height / 2, Math.max(this.canvas.width, this.canvas.height) * 0.75
+        );
+        vg.addColorStop(0, 'rgba(0,0,0,0)');
+        vg.addColorStop(1, 'rgba(0,0,0,0.12)');
+        this.ctx.fillStyle = vg;
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
     
     drawItems() {
@@ -821,16 +929,16 @@ class GoldMiningGame {
                     break;
                     
                 case 'stone':
-                    // 石子 - 粗糙纹理
-                    this.ctx.fillStyle = '#A9A9A9';
-                    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-                    this.ctx.shadowBlur = 5;
+                    // 石子 - 加深灰以增强对比
+                    this.ctx.fillStyle = '#7B8D97'; // 深灰蓝
+                    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.30)';
+                    this.ctx.shadowBlur = 6;
                     this.ctx.beginPath();
                     this.ctx.arc(0, 0, item.size / 2, 0, Math.PI * 2);
                     this.ctx.fill();
                     
-                    // 石子纹理
-                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                    // 细微纹理点
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
                     for (let i = 0; i < 3; i++) {
                         const angle = (i * 120) * Math.PI / 180;
                         const x = Math.cos(angle) * item.size / 4;
@@ -843,19 +951,19 @@ class GoldMiningGame {
                     
                 case 'bomb':
                     // 炸弹 - 危险警示
-                    this.ctx.fillStyle = '#FF4500';
-                    this.ctx.shadowColor = 'rgba(255, 69, 0, 0.5)';
+                    this.ctx.fillStyle = '#000000';
+                    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
                     this.ctx.shadowBlur = 8;
                     this.ctx.beginPath();
                     this.ctx.arc(0, 0, item.size / 2, 0, Math.PI * 2);
                     this.ctx.fill();
                     
-                    // 炸弹引线
-                    this.ctx.fillStyle = '#8B4513';
+                    // 炸弹引线（改为深灰蓝）
+                    this.ctx.fillStyle = '#334155';
                     this.ctx.fillRect(-2, -item.size/2 - 5, 4, 8);
                     
                     // 危险符号
-                    this.ctx.fillStyle = 'black';
+                    this.ctx.fillStyle = '#FFFFFF';
                     this.ctx.font = 'bold 14px Arial';
                     this.ctx.textAlign = 'center';
                     this.ctx.textBaseline = 'middle';
@@ -869,15 +977,15 @@ class GoldMiningGame {
     }
     
     drawMinerAndHook() {
-        // 绘制矿工（更精细的像素风格）
-        this.ctx.fillStyle = '#2F4F4F';
+        // 绘制矿工（现代低饱和配色）
+        this.ctx.fillStyle = '#2E3440'; // 机身：深灰蓝
         this.ctx.fillRect(this.minerPosition.x - 25, this.minerPosition.y - 40, 50, 40);
         
         // 矿工细节
-        this.ctx.fillStyle = '#1C1C1C';
+        this.ctx.fillStyle = '#4C566A'; // 帽子：中灰蓝
         this.ctx.fillRect(this.minerPosition.x - 15, this.minerPosition.y - 35, 30, 10); // 帽子
         
-        this.ctx.fillStyle = '#8B4513';
+        this.ctx.fillStyle = '#D8B4A0'; // 肤色更自然
         this.ctx.fillRect(this.minerPosition.x - 10, this.minerPosition.y - 25, 20, 15); // 脸部
         
         // 绘制钩子（带动态效果）
@@ -958,8 +1066,8 @@ class GoldMiningGame {
                     break;
                     
                 case 'stone':
-                    this.ctx.fillStyle = '#A9A9A9';
-                    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+                    this.ctx.fillStyle = '#7B8D97';
+                    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
                     this.ctx.shadowBlur = 5;
                     this.ctx.beginPath();
                     this.ctx.arc(0, 0, this.caughtItem.size / 2, 0, Math.PI * 2);
@@ -967,13 +1075,13 @@ class GoldMiningGame {
                     break;
                     
                 case 'bomb':
-                    this.ctx.fillStyle = '#FF4500';
-                    this.ctx.shadowColor = 'rgba(255, 69, 0, 0.5)';
+                    this.ctx.fillStyle = '#000000';
+                    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
                     this.ctx.shadowBlur = 8;
                     this.ctx.beginPath();
                     this.ctx.arc(0, 0, this.caughtItem.size / 2, 0, Math.PI * 2);
                     this.ctx.fill();
-                    this.ctx.fillStyle = 'black';
+                    this.ctx.fillStyle = '#334155';
                     this.ctx.fillRect(-3, -8, 6, 4);
                     break;
             }
@@ -993,24 +1101,25 @@ class GoldMiningGame {
         
         // 游戏状态提示
         if (this.gameState === 'idle') {
-            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-            this.ctx.fillRect(this.canvas.width / 2 - 100, this.canvas.height / 2 - 30, 200, 60);
-            this.ctx.fillStyle = '#FFFFFF';
-            this.ctx.font = 'bold 20px Arial';
+            // 优化开始提示样式 - 更美观的半透明卡片
+            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+            this.ctx.strokeStyle = 'rgba(255, 215, 0, 0.8)';
+            this.ctx.lineWidth = 3;
+            this.ctx.beginPath();
+            this.ctx.roundRect(this.canvas.width / 2 - 120, this.canvas.height / 2 - 40, 240, 80, 12);
+            this.ctx.fill();
+            this.ctx.stroke();
+            
+            this.ctx.fillStyle = '#1f2937';
+            this.ctx.font = 'bold 17px Arial';
             this.ctx.textAlign = 'center';
-            this.ctx.fillText('点击"开始游戏"按钮', this.canvas.width / 2, this.canvas.height / 2);
-            this.ctx.fillText('开始挖矿冒险!', this.canvas.width / 2, this.canvas.height / 2 + 25);
-            this.ctx.textAlign = 'left';
-        } else if (this.gameState === 'gameOver') {
-            this.ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
-            this.ctx.fillRect(this.canvas.width / 2 - 100, this.canvas.height / 2 - 30, 200, 60);
-            this.ctx.fillStyle = '#FFFFFF';
-            this.ctx.font = 'bold 20px Arial';
-            this.ctx.textAlign = 'center';
-            this.ctx.fillText('游戏结束!', this.canvas.width / 2, this.canvas.height / 2);
-            this.ctx.fillText('点击"重新开始"', this.canvas.width / 2, this.canvas.height / 2 + 25);
+            this.ctx.fillText('点击"开始游戏"按钮开始冒险', this.canvas.width / 2, this.canvas.height / 2 - 8);
+            this.ctx.font = 'normal 14px Arial';
+            this.ctx.fillStyle = '#6b7280';
+            this.ctx.fillText('点击屏幕或按Enter键发射钩子', this.canvas.width / 2, this.canvas.height / 2 + 22);
             this.ctx.textAlign = 'left';
         }
+        // 移除gameOver状态的Canvas文字提示（已由模态框替代）
     }
     
     gameLoop(currentTime) {
