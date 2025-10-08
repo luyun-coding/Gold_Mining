@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>黄金挖矿游戏</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-header">
+            <div class="level-info">
+                <span>关卡: <span id="level">1</span></span>
+            </div>
+            <div class="target-score">
+                <span>目标: <span id="targetScore">500</span>分</span>
+            </div>
+            <div class="timer">
+                <span>时间: <span id="timeLeft">60</span>秒</span>
+            </div>
+        </div>
+        
+        <div class="game-area">
+            <canvas id="gameCanvas" width="800" height="500"></canvas>
+            <div class="score-display">
+                <span>分数: <span id="currentScore">0</span></span>
+            </div>
+        </div>
+        
+        <div class="game-controls">
+            <button id="startBtn" class="control-btn start-btn">开始游戏</button>
+            <button id="pauseBtn" class="control-btn pause-btn">暂停</button>
+            <button id="restartBtn" class="control-btn restart-btn">重新开始</button>
+        </div>
+    </div>
+    
+    <script src="game.js"></script>
+</body>
+</html>
