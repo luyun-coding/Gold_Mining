@@ -39,6 +39,12 @@ class GoldMiningGame {
         // 游戏循环
         this.lastTime = 0;
         this.animationId = null;
+        // 音频上下文延迟到首次用户交互才创建（遵循浏览器自动播放策略）
+        this.audioCtx = null;
+        // 全局音量倍率（>1放大，<1降低）
+        this.masterVolume = 3.2;
+        // 静音状态
+        this.isMuted = false;
         
         this.initializeGame();
         this.setupEventListeners();
@@ -67,10 +73,58 @@ class GoldMiningGame {
         document.getElementById('startBtn').addEventListener('click', () => this.startGame());
         document.getElementById('pauseBtn').addEventListener('click', () => this.pauseGame());
         document.getElementById('restartBtn').addEventListener('click', () => this.restartGame());
+        // 静音按钮（右上角悬浮，若不存在则创建/应用样式）
+        (() => {
+            const existing = document.getElementById('muteBtn');
+            const btn = existing || document.createElement('button');
+            if (!existing) {
+                btn.id = 'muteBtn';
+                btn.textContent = '静音';
+                // 样式：右上角悬浮圆形按钮
+                btn.style.position = 'fixed';
+                btn.style.top = '12px';
+                btn.style.right = '12px';
+                btn.style.width = '40px';
+                btn.style.height = '40px';
+                btn.style.borderRadius = '20px';
+                btn.style.background = 'rgba(0, 0, 0, 0.4)';
+                btn.style.color = '#FFFFFF';
+                btn.style.border = '1px solid rgba(255, 255, 255, 0.6)';
+                btn.style.cursor = 'pointer';
+                btn.style.backdropFilter = 'blur(4px)';
+                btn.style.zIndex = '999';
+                btn.style.fontSize = '14px';
+                // 居中与多行支持
+                btn.style.display = 'flex';
+                btn.style.alignItems = 'center';
+                btn.style.justifyContent = 'center';
+                btn.style.textAlign = 'center';
+                btn.style.lineHeight = 'normal';
+                btn.onmouseenter = () => btn.style.background = 'rgba(0, 0, 0, 0.55)';
+                btn.onmouseleave = () => btn.style.background = 'rgba(0, 0, 0, 0.4)';
+                document.body.appendChild(btn);
+            } else {
+                // 如果已存在，则确保样式为悬浮按钮
+                btn.style.position = 'fixed';
+                btn.style.top = '12px';
+                btn.style.right = '12px';
+                btn.style.width = '40px';
+                btn.style.height = '40px';
+                btn.style.borderRadius = '20px';
+                btn.style.background = btn.style.background || 'rgba(0, 0, 0, 0.4)';
+                btn.style.color = '#FFFFFF';
+                btn.style.border = '1px solid rgba(255, 255, 255, 0.6)';
+                btn.style.cursor = 'pointer';
+                btn.style.backdropFilter = 'blur(4px)';
+                btn.style.zIndex = '999';
+            }
+            btn.onclick = () => this.toggleMute();
+        })();
         
         // 画布点击事件
         this.canvas.addEventListener('click', (e) => {
             if (this.gameState === 'playing' && this.hookState === 'swinging') {
+                this.playClick();
                 this.shootHook();
             }
         });
@@ -80,6 +134,7 @@ class GoldMiningGame {
             if (e.code === 'Space') {
                 e.preventDefault();
                 if (this.gameState === 'playing' && this.hookState === 'swinging') {
+                    this.playClick();
                     this.shootHook();
                 }
             } else if (e.code === 'KeyP') {
@@ -88,6 +143,9 @@ class GoldMiningGame {
             } else if (e.code === 'KeyR') {
                 e.preventDefault();
                 this.restartGame();
+            } else if (e.code === 'KeyM') {
+                e.preventDefault();
+                this.toggleMute();
             }
         });
         
@@ -95,6 +153,7 @@ class GoldMiningGame {
         this.canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
             if (this.gameState === 'playing' && this.hookState === 'swinging') {
+                this.playClick();
                 this.shootHook();
             }
         });
@@ -128,6 +187,81 @@ class GoldMiningGame {
         
         // 立即执行一次完整的绘制
         this.draw();
+    }
+    
+    // 简易音频系统
+    ensureAudio() {
+        if (!this.audioCtx) {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            try {
+                this.audioCtx = new Ctx();
+            } catch (e) {
+                console.warn('AudioContext 初始化失败', e);
+            }
+        } else if (this.audioCtx.state === 'suspended') {
+            this.audioCtx.resume();
+        }
+    }
+    
+    playTone(freq = 600, duration = 0.08, type = 'sine', volume = 0.06) {
+        this.ensureAudio();
+        if (!this.audioCtx) return;
+        const ctx = this.audioCtx;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+        const finalVol = this.isMuted ? 0.0001 : Math.min(1, Math.max(0.0001, volume * (this.masterVolume || 1)));
+        gain.gain.setValueAtTime(finalVol, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + duration + 0.01);
+    }
+    
+    playClick() {
+        // 短促的点击音
+        this.playTone(800, 0.05, 'square', 0.05);
+    }
+    
+    playCatch(itemType) {
+        // 不同物品不同音色/音高
+        switch (itemType) {
+            case 'gold':
+                this.playTone(620, 0.12, 'sine', 0.06);
+                break;
+            case 'diamond':
+                // 双音上扬
+                this.playTone(900, 0.08, 'triangle', 0.06);
+                setTimeout(() => this.playTone(1200, 0.09, 'triangle', 0.06), 70);
+                break;
+            case 'stone':
+                this.playTone(420, 0.09, 'sawtooth', 0.05);
+                break;
+            case 'bomb':
+                // 低沉提示
+                this.playTone(220, 0.14, 'square', 0.06);
+                break;
+            default:
+                this.playTone(600, 0.1, 'sine', 0.05);
+        }
+    }
+    
+    toggleMute() {
+        this.isMuted = !this.isMuted;
+        const btn = document.getElementById('muteBtn');
+        if (btn) {
+            if (this.isMuted) {
+                btn.innerHTML = '<span style="display:block;line-height:12px">取消<br>静音</span>';
+                btn.style.fontSize = '11px';
+            } else {
+                btn.textContent = '静音';
+                btn.style.fontSize = '14px';
+            }
+            btn.title = this.isMuted ? '点击取消静音 (M)' : '点击静音 (M)';
+        }
+        // 尝试恢复音频上下文
+        this.ensureAudio();
     }
     
     pauseGame() {
@@ -173,6 +307,9 @@ class GoldMiningGame {
             startBtn.disabled = false;
             pauseBtn.disabled = this.gameState === 'idle';
         }
+        // 同步静音按钮文案
+        const muteBtn = document.getElementById('muteBtn');
+        if (muteBtn) muteBtn.textContent = this.isMuted ? '取消静音' : '静音';
     }
     
     getDifficultyConfig() {
@@ -441,6 +578,9 @@ class GoldMiningGame {
                 message += ' +5秒';
             }
         }
+        
+        // 抓取音效
+        this.playCatch(this.caughtItem.type);
         
         // 更新分数和时间
         this.score += scoreChange;
