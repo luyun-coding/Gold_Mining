@@ -29,7 +29,10 @@ class GoldMiningGame {
         this.hookLength = 40;
         this.hookState = 'swinging'; // swinging, shooting, returning
         this.hookPosition = { x: this.minerPosition.x, y: this.minerPosition.y };
-        this.hookSpeed = 4; // 降低速度以更平滑的控制
+        
+        // 基于时间的速度计算，确保在不同屏幕尺寸下速度一致
+        this.hookSpeed = 300; // 每秒移动300像素，与屏幕尺寸无关
+        
         this.maxShootLength = 450; // 发射最大长度，超过则回收
         this.caughtItem = null;
         
@@ -520,10 +523,11 @@ class GoldMiningGame {
             this.hookAngle = this.swingAngle * 180 / Math.PI;
         }
         else if (this.hookState === 'shooting') {
-            // 钩子发射逻辑 - 沿摆动方向直线前进（Canvas坐标：下为正）
+            // 钩子发射逻辑 - 基于时间而非像素，确保速度一致
+            const speed = this.hookSpeed * (this.deltaTime || 0.016); // 转换为每秒像素
             const angleRad = (this.hookAngle * Math.PI) / 180;
-            this.hookPosition.x += Math.sin(angleRad) * this.hookSpeed;
-            this.hookPosition.y += Math.cos(angleRad) * this.hookSpeed;
+            this.hookPosition.x += Math.sin(angleRad) * speed;
+            this.hookPosition.y += Math.cos(angleRad) * speed;
             
             // 最大伸出长度检测（超过则回收）
             {
@@ -545,14 +549,17 @@ class GoldMiningGame {
             }
         }
         else if (this.hookState === 'returning') {
-            // 钩子返回逻辑
+            // 钩子返回逻辑 - 基于时间而非像素，确保速度一致
+            const speed = this.hookSpeed * 2 * (this.deltaTime || 0.016); // 返回速度加倍
             const dx = this.minerPosition.x - this.hookPosition.x;
             const dy = this.minerPosition.y - this.hookPosition.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
             
-            if (distance < 5) {
+            if (distance < 2) { // 减小阈值，避免频闪
+                // 确保钩子完全回到原点
+                this.hookPosition.x = this.minerPosition.x;
+                this.hookPosition.y = this.minerPosition.y;
                 this.hookState = 'swinging';
-                this.hookPosition = { x: this.minerPosition.x, y: this.minerPosition.y };
                 
                 // 处理抓取的物品
                 if (this.caughtItem) {
@@ -560,8 +567,10 @@ class GoldMiningGame {
                     this.caughtItem = null;
                 }
             } else {
-                this.hookPosition.x += (dx / distance) * this.hookSpeed * 2;
-                this.hookPosition.y += (dy / distance) * this.hookSpeed * 2;
+                // 使用基于时间的速度，确保平滑移动
+                const moveDistance = Math.min(distance, speed); // 避免超调
+                this.hookPosition.x += (dx / distance) * moveDistance;
+                this.hookPosition.y += (dy / distance) * moveDistance;
             }
         }
     }
@@ -1116,7 +1125,7 @@ class GoldMiningGame {
             this.ctx.fillText('点击"开始游戏"按钮开始冒险', this.canvas.width / 2, this.canvas.height / 2 - 8);
             this.ctx.font = 'normal 14px Arial';
             this.ctx.fillStyle = '#6b7280';
-            this.ctx.fillText('点击屏幕或按Enter键发射钩子', this.canvas.width / 2, this.canvas.height / 2 + 22);
+            this.ctx.fillText('点击屏幕或按空格键发射钩子', this.canvas.width / 2, this.canvas.height / 2 + 22);
             this.ctx.textAlign = 'left';
         }
         // 移除gameOver状态的Canvas文字提示（已由模态框替代）
